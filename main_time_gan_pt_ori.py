@@ -116,7 +116,7 @@ def main(args):
     # Log start time
     start = time.time()
 
-    is_do_train = True
+    is_do_train = False
     model = TimeGAN(args)
     if args.is_train:
         if is_do_train:
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     # Model Arguments
     parser.add_argument("--emb_epochs", default=600, type=int)
     parser.add_argument("--sup_epochs", default=600, type=int)
-    parser.add_argument("--gan_epochs", default=600, type=int)
+    parser.add_argument("--gan_epochs", default=3000, type=int)
     parser.add_argument("--batch_size", default=128, type=int)
     parser.add_argument("--hidden_dim", default=20, type=int)
     parser.add_argument("--num_layers", default=3, type=int)

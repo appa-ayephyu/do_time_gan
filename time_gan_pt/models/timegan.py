@@ -413,7 +413,6 @@ class TimeGAN(torch.nn.Module):
         E_loss = E_loss0 + 0.1 * G_loss_S
         return E_loss, E_loss0, E_loss_T0
 
-
     def _supervisor_forward(self, X, T):
         """The supervisor training forward pass
         Args:
@@ -431,14 +430,16 @@ class TimeGAN(torch.nn.Module):
         )  # Teacher forcing next output
         return S_loss
 
-    def ex_discriminator_forward(self, X, T, Z, gamma=1, embedder=None, generator=None, supervisor=None):
+    def ex_discriminator_forward(
+        self, X, T, Z, gamma=1, embedder=None, generator=None, supervisor=None
+    ):
         """The discriminator forward pass and adversarial loss
-            Args:
-                - X: the input features
-                - T: the temporal information
-                - Z: the input noise
-            Returns:
-                - D_loss: the adversarial loss
+        Args:
+            - X: the input features
+            - T: the temporal information
+            - Z: the input noise
+        Returns:
+            - D_loss: the adversarial loss
         """
         assert embedder is not None
         assert generator is not None

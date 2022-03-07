@@ -12,6 +12,7 @@ from tqdm import trange
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import torch.utils.data
+from copy import deepcopy
 
 # Self-written modules
 from time_gan_pt.models.dataset import TimeGANDataset
@@ -22,12 +23,12 @@ from time_gan_pt.models.timegan import TimeGAN
 
 
 def embedding_trainer(
-        model: torch.nn.Module,
-        dataloader: torch.utils.data.DataLoader,
-        e_opt: torch.optim.Optimizer,
-        r_opt: torch.optim.Optimizer,
-        args,
-        writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
+    model: torch.nn.Module,
+    dataloader: torch.utils.data.DataLoader,
+    e_opt: torch.optim.Optimizer,
+    r_opt: torch.optim.Optimizer,
+    args,
+    writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
 ) -> None:
     """The training loop for the embedding and recovery functions"""
     logger = trange(args.emb_epochs, desc=f"Epoch: 0, Loss: 0")
@@ -56,12 +57,12 @@ def embedding_trainer(
 
 
 def supervisor_trainer(
-        model: torch.nn.Module,
-        dataloader: torch.utils.data.DataLoader,
-        s_opt: torch.optim.Optimizer,
-        g_opt: torch.optim.Optimizer,
-        args,
-        writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
+    model: torch.nn.Module,
+    dataloader: torch.utils.data.DataLoader,
+    s_opt: torch.optim.Optimizer,
+    g_opt: torch.optim.Optimizer,
+    args,
+    writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
 ) -> None:
     """The training loop for the supervisor function"""
     logger = trange(args.sup_epochs, desc=f"Epoch: 0, Loss: 0")
@@ -88,19 +89,19 @@ def supervisor_trainer(
 
 
 def do_joint_trainer(
-        model: TimeGAN,
-        dataloader: torch.utils.data.DataLoader,
-        e_opt: torch.optim.Optimizer,
-        r_opt: torch.optim.Optimizer,
-        s_opt: torch.optim.Optimizer,
-        g_opt: torch.optim.Optimizer,
-        d_opt: torch.optim.Optimizer,
-        args,
-        writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
+    model: TimeGAN,
+    dataloader: torch.utils.data.DataLoader,
+    e_opt: torch.optim.Optimizer,
+    r_opt: torch.optim.Optimizer,
+    s_opt: torch.optim.Optimizer,
+    g_opt: torch.optim.Optimizer,
+    d_opt: torch.optim.Optimizer,
+    args,
+    writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
 ) -> None:
     # logger = trange(args.sup_epochs, desc=f"Epoch: 0, E_loss: 0, G_loss: 0, D_loss: 0")
-    max_loop = 10
-    max_epochs = 100
+    max_loop = 3
+    max_epochs = 500
     embedder_list = []
     supervisor_list = []
     generator_list = []
@@ -109,12 +110,12 @@ def do_joint_trainer(
     for loop in range(max_loop):
         # print()
         # modules for generation
-        embedder_list.append(model.embedder)
-        supervisor_list.append(model.supervisor)
-        generator_list.append(model.generator)
-        recovery_list.append(model.recovery)
+        embedder_list.append(deepcopy(model.embedder))
+        supervisor_list.append(deepcopy(model.supervisor))
+        generator_list.append(deepcopy(model.generator))
+        recovery_list.append(deepcopy(model.recovery))
         # module for discrimination
-        discriminator_list.append(model.discriminator)
+        discriminator_list.append(deepcopy(model.discriminator))
         for epoch in range(max_epochs):
             print("do training, epoch {}".format(epoch))
             for X_mb, T_mb in dataloader:
@@ -128,7 +129,9 @@ def do_joint_trainer(
                     G_loss = torch.tensor(0.0, requires_grad=True, device=model.device)
                     for i, discriminator in enumerate(discriminator_list):
                         G_loss = G_loss + (
-                            model.ex_generator_forward(X=X_mb, T=T_mb, Z=Z_mb, discriminator=discriminator)
+                            model.ex_generator_forward(
+                                X=X_mb, T=T_mb, Z=Z_mb, discriminator=discriminator
+                            )
                         )
 
                     # G_loss = model(X=X_mb, T=T_mb, Z=Z_mb, obj="generator")
@@ -160,13 +163,18 @@ def do_joint_trainer(
                 # Forward Pass
                 D_loss = torch.tensor(0.0, requires_grad=True, device=model.device)
                 for embedder, supervisor, generator, recovery in zip(
-                        embedder_list, supervisor_list, generator_list, recovery_list
+                    embedder_list, supervisor_list, generator_list, recovery_list
                 ):
                     # print()
                     D_loss = D_loss + (
-                        model.ex_discriminator_forward(X=X_mb, T=T_mb, Z=Z_mb,
-                                                       embedder=embedder, supervisor=supervisor,
-                                                       generator=generator)
+                        model.ex_discriminator_forward(
+                            X=X_mb,
+                            T=T_mb,
+                            Z=Z_mb,
+                            embedder=embedder,
+                            supervisor=supervisor,
+                            generator=generator,
+                        )
                     )
                 # D_loss = model(X=X_mb, T=T_mb, Z=Z_mb, obj="discriminator")
 
@@ -181,15 +189,15 @@ def do_joint_trainer(
 
 
 def joint_trainer(
-        model: torch.nn.Module,
-        dataloader: torch.utils.data.DataLoader,
-        e_opt: torch.optim.Optimizer,
-        r_opt: torch.optim.Optimizer,
-        s_opt: torch.optim.Optimizer,
-        g_opt: torch.optim.Optimizer,
-        d_opt: torch.optim.Optimizer,
-        args,
-        writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
+    model: torch.nn.Module,
+    dataloader: torch.utils.data.DataLoader,
+    e_opt: torch.optim.Optimizer,
+    r_opt: torch.optim.Optimizer,
+    s_opt: torch.optim.Optimizer,
+    g_opt: torch.optim.Optimizer,
+    d_opt: torch.optim.Optimizer,
+    args,
+    writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
 ) -> None:
     """The training loop for training the model altogether"""
     logger = trange(args.sup_epochs, desc=f"Epoch: 0, E_loss: 0, G_loss: 0, D_loss: 0")
@@ -382,6 +390,16 @@ def timegan_trainer(model, data, time, args):
     torch.save(args, f"{args.model_path}/args.pickle")
     torch.save(model.state_dict(), f"{args.model_path}/model.pt")
     print(f"\nSaved at path: {args.model_path}")
+
+
+def ex_inference(Z, T, generator, supervisor, recovery):
+    # Generator Forward Pass
+    E_hat = generator(Z, T)
+    H_hat = supervisor(E_hat, T)
+
+    # Synthetic data generated
+    X_hat = recovery(H_hat, T)
+    return X_hat
 
 
 def timegan_generator(model, T, args):
