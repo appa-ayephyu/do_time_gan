@@ -293,7 +293,7 @@ if __name__ == "__main__":
     parser.add_argument("--learning_rate", default=1e-3, type=float)
 
     parser.add_argument("--max_loops", default=20, type=int)
-    parser.add_argument("--train_epochs", default=500, type=int)
+    parser.add_argument("--train_epochs", default=200, type=int)
     parser.add_argument("--eval_epochs", default=20, type=int)
     args = parser.parse_args()
 

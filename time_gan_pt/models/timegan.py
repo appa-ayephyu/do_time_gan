@@ -4,6 +4,13 @@ import numpy as np
 import torch.nn.functional as F
 
 
+# from time_gan_pt.models.utils import soft_update
+
+def soft_update(online, target, tau=0.9):
+    for online, target in zip(online.parameters(), target.parameters()):
+        target.data = tau * target.data + (1 - tau) * online.data
+
+
 class EmbeddingNetwork(torch.nn.Module):
     """The embedding network (encoder) for TimeGAN"""
 
@@ -382,11 +389,33 @@ class TimeGAN(torch.nn.Module):
         self.max_seq_len = args.max_seq_len
         self.batch_size = args.batch_size
 
+        self.args = args
+
         self.embedder = EmbeddingNetwork(args)
         self.recovery = RecoveryNetwork(args)
         self.generator = GeneratorNetwork(args)
         self.supervisor = SupervisorNetwork(args)
         self.discriminator = DiscriminatorNetwork(args)
+
+    def save_current_modules(self):
+        args = self.args
+        embedder = EmbeddingNetwork(args).to(self.device)
+        recovery = RecoveryNetwork(args).to(self.device)
+        generator = GeneratorNetwork(args).to(self.device)
+        supervisor = SupervisorNetwork(args).to(self.device)
+        discriminator = DiscriminatorNetwork(args).to(self.device)
+        target_nets = [embedder, recovery, generator, supervisor, discriminator]
+        nets = [self.embedder, self.recovery, self.generator, self.supervisor, self.discriminator]
+        for net, target_net in zip(nets, target_nets):
+            target_net.load_state_dict(net.state_dict())
+
+        return {
+            "embedder": embedder,
+            "recovery": recovery,
+            "generator": generator,
+            "supervisor": supervisor,
+            "discriminator": discriminator
+        }
 
     def _recovery_forward(self, X, T):
         """The embedding network forward pass and the embedder network loss
@@ -431,7 +460,7 @@ class TimeGAN(torch.nn.Module):
         return S_loss
 
     def ex_discriminator_forward(
-        self, X, T, Z, gamma=1, embedder=None, generator=None, supervisor=None
+            self, X, T, Z, gamma=1, embedder=None, generator=None, supervisor=None
     ):
         """The discriminator forward pass and adversarial loss
         Args:
@@ -514,8 +543,8 @@ class TimeGAN(torch.nn.Module):
 
         # Generator Loss
         # 1. Adversarial loss
-        Y_fake = discriminator(H_hat, T)  # Output of supervisor
-        Y_fake_e = discriminator(E_hat, T)  # Output of generator
+        Y_fake = discriminator(H_hat, T).detach()  # Output of supervisor
+        Y_fake_e = discriminator(E_hat, T).detach()  # Output of generator
 
         G_loss_U = F.binary_cross_entropy_with_logits(Y_fake, torch.ones_like(Y_fake))
         G_loss_U_e = F.binary_cross_entropy_with_logits(
@@ -540,7 +569,7 @@ class TimeGAN(torch.nn.Module):
 
         # 4. Summation
         G_loss = (
-            G_loss_U + gamma * G_loss_U_e + 100 * torch.sqrt(G_loss_S) + 100 * G_loss_V
+                G_loss_U + gamma * G_loss_U_e + 100 * torch.sqrt(G_loss_S) + 100 * G_loss_V
         )
 
         return G_loss
@@ -628,7 +657,7 @@ class TimeGAN(torch.nn.Module):
 
         # 4. Summation
         G_loss = (
-            G_loss_U + gamma * G_loss_U_e + 100 * torch.sqrt(G_loss_S) + 100 * G_loss_V
+                G_loss_U + gamma * G_loss_U_e + 100 * torch.sqrt(G_loss_S) + 100 * G_loss_V
         )
 
         return G_loss

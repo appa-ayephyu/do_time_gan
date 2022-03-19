@@ -135,7 +135,7 @@ def feature_prediction(train_data, test_data, index):
                 test_p = np.reshape(test_p, [-1])
                 test_y = np.reshape(test_y.numpy(), [-1])
 
-                temp_perf = rmse_error(test_y, test_p)
+                temp_perf += rmse_error(test_y, test_p)
 
         perf.append(temp_perf)
 

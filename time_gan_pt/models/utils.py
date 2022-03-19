@@ -17,18 +17,23 @@ from copy import deepcopy
 # Self-written modules
 from time_gan_pt.models.dataset import TimeGANDataset
 from time_gan_pt.models.timegan import TimeGAN
+from meta_solvers.prd_solver import projected_replicator_dynamics
 
 
 # from torch.utils.data.dataloader import DataLoader
 
+# def soft_update(online, target, tau=0.9):
+#     for online, target in zip(online.parameters(), target.parameters()):
+#         target.data = tau * target.data + (1 - tau) * online.data
+
 
 def embedding_trainer(
-    model: torch.nn.Module,
-    dataloader: torch.utils.data.DataLoader,
-    e_opt: torch.optim.Optimizer,
-    r_opt: torch.optim.Optimizer,
-    args,
-    writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
+        model: torch.nn.Module,
+        dataloader: torch.utils.data.DataLoader,
+        e_opt: torch.optim.Optimizer,
+        r_opt: torch.optim.Optimizer,
+        args,
+        writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
 ) -> None:
     """The training loop for the embedding and recovery functions"""
     logger = trange(args.emb_epochs, desc=f"Epoch: 0, Loss: 0")
@@ -57,12 +62,12 @@ def embedding_trainer(
 
 
 def supervisor_trainer(
-    model: torch.nn.Module,
-    dataloader: torch.utils.data.DataLoader,
-    s_opt: torch.optim.Optimizer,
-    g_opt: torch.optim.Optimizer,
-    args,
-    writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
+        model: torch.nn.Module,
+        dataloader: torch.utils.data.DataLoader,
+        s_opt: torch.optim.Optimizer,
+        g_opt: torch.optim.Optimizer,
+        args,
+        writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
 ) -> None:
     """The training loop for the supervisor function"""
     logger = trange(args.sup_epochs, desc=f"Epoch: 0, Loss: 0")
@@ -89,34 +94,128 @@ def supervisor_trainer(
 
 
 def do_joint_trainer(
-    model: TimeGAN,
-    dataloader: torch.utils.data.DataLoader,
-    e_opt: torch.optim.Optimizer,
-    r_opt: torch.optim.Optimizer,
-    s_opt: torch.optim.Optimizer,
-    g_opt: torch.optim.Optimizer,
-    d_opt: torch.optim.Optimizer,
-    args,
-    writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
-) -> None:
+        model: TimeGAN,
+        dataloader: torch.utils.data.DataLoader,
+        e_opt: torch.optim.Optimizer,
+        r_opt: torch.optim.Optimizer,
+        s_opt: torch.optim.Optimizer,
+        g_opt: torch.optim.Optimizer,
+        d_opt: torch.optim.Optimizer,
+        args,
+        writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
+):
     # logger = trange(args.sup_epochs, desc=f"Epoch: 0, E_loss: 0, G_loss: 0, D_loss: 0")
-    max_loop = 3
-    max_epochs = 500
+    # parser.add_argument("--max_loops", default=10, type=int)
+    # parser.add_argument("--train_epochs", default=200, type=int)
+    # parser.add_argument("--eval_epochs", default=10, type=int)
+    max_loop = args.max_loops
+    eval_max_epochs = args.eval_epochs
+    train_max_epochs = args.train_epochs
     embedder_list = []
     supervisor_list = []
     generator_list = []
     recovery_list = []
     discriminator_list = []
-    for loop in range(max_loop):
+
+    meta_payoff_matrix = [np.zeros([1, 1]), np.zeros([1, 1])]
+    # meta_strategy = None
+    for loop in range(max_loop + 1):
         # print()
         # modules for generation
+        # current_modules_dict = model.save_current_modules()
         embedder_list.append(deepcopy(model.embedder))
         supervisor_list.append(deepcopy(model.supervisor))
         generator_list.append(deepcopy(model.generator))
         recovery_list.append(deepcopy(model.recovery))
         # module for discrimination
-        discriminator_list.append(deepcopy(model.discriminator))
-        for epoch in range(max_epochs):
+        discriminator_list.append(model.discriminator)
+
+        for i in range(len(embedder_list)):
+            # print(embedder_list[i].emb_linear.parameters())
+            embedder_list[i].eval()
+            supervisor_list[i].eval()
+            generator_list[i].eval()
+            recovery_list[i].eval()
+
+            discriminator_list[i].eval()
+
+        # aug payoff matrix
+        new_row = len(embedder_list)
+        new_col = len(discriminator_list)
+        new_meta_payoff_matrix = [
+            np.full([new_row, new_col], fill_value=np.nan),
+            np.full([new_row, new_col], fill_value=np.nan),
+        ]
+
+        if loop != 0:
+            (row, col) = meta_payoff_matrix[0].shape
+            for k in [0, 1]:
+                for i in range(row):
+                    for j in range(col):
+                        new_meta_payoff_matrix[k][i][j] = meta_payoff_matrix[k][i][j]
+
+        print("augment meta payoff matrix")
+        for i in range(new_row):
+            for j in range(new_col):
+                if np.isnan(new_meta_payoff_matrix[0][i][j]):
+                    new_meta_payoff_matrix[0][i][j] = 0.0
+                    new_meta_payoff_matrix[1][i][j] = 0.0
+
+                    # compute new responses
+                    steps = 0
+                    model.eval()
+                    for epoch in range(eval_max_epochs):
+
+                        for X_mb, T_mb in dataloader:
+                            # Generator Training
+                            Z_mb = torch.rand(
+                                (args.batch_size, args.max_seq_len, args.Z_dim)
+                            )
+                            G_loss = model.ex_generator_forward(
+                                X=X_mb,
+                                T=T_mb,
+                                Z=Z_mb,
+                                discriminator=discriminator_list[j],
+                            )
+                            # print(G_loss)
+                            # Random Generator
+                            Z_mb = torch.rand(
+                                (args.batch_size, args.max_seq_len, args.Z_dim)
+                            )
+                            D_loss = model.ex_discriminator_forward(
+                                X=X_mb,
+                                T=T_mb,
+                                Z=Z_mb,
+                                embedder=embedder_list[i],
+                                supervisor=supervisor_list[i],
+                                generator=generator_list[i],
+                            )
+                            # D_loss = D_loss.item()
+                            # print(D_loss)
+                            new_meta_payoff_matrix[0][i][j] += (-1) * G_loss.item()
+                            new_meta_payoff_matrix[1][i][j] += (-1) * D_loss.item()
+                            steps += 1
+                    new_meta_payoff_matrix[0][i][j] /= steps
+                    new_meta_payoff_matrix[1][i][j] /= steps
+        meta_payoff_matrix = new_meta_payoff_matrix
+        meta_strategy = projected_replicator_dynamics(meta_payoff_matrix, prd_iterations=int(1e6))
+        print("meta_payoff: {}".format(meta_payoff_matrix))
+        print("meta_strategy: {}".format(meta_strategy))
+        if loop == max_loop:
+            return {
+                "embedder_list": embedder_list,
+                "supervisor_list": supervisor_list,
+                "generator_list": generator_list,
+                "recovery_list": recovery_list,
+                "discriminator_list": discriminator_list,
+                "meta_payoff": meta_payoff_matrix,
+                "meta_strategy": meta_strategy,
+            }
+
+        # compute new responses
+        # model.generate_new_modules()
+        model.train()
+        for epoch in range(train_max_epochs):
             print("do training, epoch {}".format(epoch))
             for X_mb, T_mb in dataloader:
                 # Generator Training
@@ -128,7 +227,7 @@ def do_joint_trainer(
                     model.zero_grad()
                     G_loss = torch.tensor(0.0, requires_grad=True, device=model.device)
                     for i, discriminator in enumerate(discriminator_list):
-                        G_loss = G_loss + (
+                        G_loss = G_loss + meta_strategy[1][i] * (
                             model.ex_generator_forward(
                                 X=X_mb, T=T_mb, Z=Z_mb, discriminator=discriminator
                             )
@@ -162,18 +261,16 @@ def do_joint_trainer(
                 model.zero_grad()
                 # Forward Pass
                 D_loss = torch.tensor(0.0, requires_grad=True, device=model.device)
-                for embedder, supervisor, generator, recovery in zip(
-                    embedder_list, supervisor_list, generator_list, recovery_list
-                ):
+                for i in range(len(embedder_list)):
                     # print()
-                    D_loss = D_loss + (
+                    D_loss = D_loss + meta_strategy[0][i] * (
                         model.ex_discriminator_forward(
                             X=X_mb,
                             T=T_mb,
                             Z=Z_mb,
-                            embedder=embedder,
-                            supervisor=supervisor,
-                            generator=generator,
+                            embedder=embedder_list[i],
+                            supervisor=supervisor_list[i],
+                            generator=generator_list[i],
                         )
                     )
                 # D_loss = model(X=X_mb, T=T_mb, Z=Z_mb, obj="discriminator")
@@ -189,15 +286,15 @@ def do_joint_trainer(
 
 
 def joint_trainer(
-    model: torch.nn.Module,
-    dataloader: torch.utils.data.DataLoader,
-    e_opt: torch.optim.Optimizer,
-    r_opt: torch.optim.Optimizer,
-    s_opt: torch.optim.Optimizer,
-    g_opt: torch.optim.Optimizer,
-    d_opt: torch.optim.Optimizer,
-    args,
-    writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
+        model: torch.nn.Module,
+        dataloader: torch.utils.data.DataLoader,
+        e_opt: torch.optim.Optimizer,
+        r_opt: torch.optim.Optimizer,
+        s_opt: torch.optim.Optimizer,
+        g_opt: torch.optim.Optimizer,
+        d_opt: torch.optim.Optimizer,
+        args,
+        writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
 ) -> None:
     """The training loop for training the model altogether"""
     logger = trange(args.sup_epochs, desc=f"Epoch: 0, E_loss: 0, G_loss: 0, D_loss: 0")
@@ -306,7 +403,7 @@ def do_timegan_trainer(model, data, time, args):
     )
 
     print("\nStart Joint Training")
-    do_joint_trainer(
+    result_dict = do_joint_trainer(
         model=model,
         dataloader=dataloader,
         e_opt=e_opt,
@@ -322,6 +419,8 @@ def do_timegan_trainer(model, data, time, args):
     torch.save(args, f"{args.model_path}/args.pickle")
     torch.save(model.state_dict(), f"{args.model_path}/model.pt")
     print(f"\nSaved at path: {args.model_path}")
+
+    return result_dict
 
 
 def timegan_trainer(model, data, time, args):
@@ -399,7 +498,7 @@ def ex_inference(Z, T, generator, supervisor, recovery):
 
     # Synthetic data generated
     X_hat = recovery(H_hat, T)
-    return X_hat
+    return X_hat.cpu().detach()
 
 
 def timegan_generator(model, T, args):
