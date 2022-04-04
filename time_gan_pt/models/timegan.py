@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 # from time_gan_pt.models.utils import soft_update
 
+
 def soft_update(online, target, tau=0.9):
     for online, target in zip(online.parameters(), target.parameters()):
         target.data = tau * target.data + (1 - tau) * online.data
@@ -405,7 +406,13 @@ class TimeGAN(torch.nn.Module):
         supervisor = SupervisorNetwork(args).to(self.device)
         discriminator = DiscriminatorNetwork(args).to(self.device)
         target_nets = [embedder, recovery, generator, supervisor, discriminator]
-        nets = [self.embedder, self.recovery, self.generator, self.supervisor, self.discriminator]
+        nets = [
+            self.embedder,
+            self.recovery,
+            self.generator,
+            self.supervisor,
+            self.discriminator,
+        ]
         for net, target_net in zip(nets, target_nets):
             target_net.load_state_dict(net.state_dict())
 
@@ -414,7 +421,7 @@ class TimeGAN(torch.nn.Module):
             "recovery": recovery,
             "generator": generator,
             "supervisor": supervisor,
-            "discriminator": discriminator
+            "discriminator": discriminator,
         }
 
     def _recovery_forward(self, X, T):
@@ -460,7 +467,7 @@ class TimeGAN(torch.nn.Module):
         return S_loss
 
     def ex_discriminator_forward(
-            self, X, T, Z, gamma=1, embedder=None, generator=None, supervisor=None
+        self, X, T, Z, gamma=1, embedder=None, generator=None, supervisor=None
     ):
         """The discriminator forward pass and adversarial loss
         Args:
@@ -569,7 +576,7 @@ class TimeGAN(torch.nn.Module):
 
         # 4. Summation
         G_loss = (
-                G_loss_U + gamma * G_loss_U_e + 100 * torch.sqrt(G_loss_S) + 100 * G_loss_V
+            G_loss_U + gamma * G_loss_U_e + 100 * torch.sqrt(G_loss_S) + 100 * G_loss_V
         )
 
         return G_loss
@@ -657,7 +664,7 @@ class TimeGAN(torch.nn.Module):
 
         # 4. Summation
         G_loss = (
-                G_loss_U + gamma * G_loss_U_e + 100 * torch.sqrt(G_loss_S) + 100 * G_loss_V
+            G_loss_U + gamma * G_loss_U_e + 100 * torch.sqrt(G_loss_S) + 100 * G_loss_V
         )
 
         return G_loss

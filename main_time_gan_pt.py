@@ -6,7 +6,6 @@ import argparse
 import os
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "3"
-import pickle
 import random
 
 # import shutil
@@ -16,7 +15,6 @@ import time
 import numpy as np
 import torch
 import torch.backends.cudnn
-import joblib
 from sklearn.model_selection import train_test_split
 
 # Self-Written Modules
@@ -24,7 +22,6 @@ from time_gan_pt.data.data_preprocess import data_preprocess
 from time_gan_pt.metrics.metric_utils import (
     feature_prediction,
     one_step_ahead_prediction,
-    reidentify_score,
 )
 
 from time_gan_pt.models.timegan import TimeGAN
@@ -94,7 +91,7 @@ def main(args):
     # Load and preprocess data for model
     #########################
 
-    data_path = "time_gan_pt/data/stock.csv"
+    data_path = "backup/time_gan_pt/data/stock.csv"
     X, T, _, args.max_seq_len, args.padding_value = data_preprocess(
         data_path, args.max_seq_len
     )
@@ -213,7 +210,9 @@ def main(args):
         + f"(1) Ori: {str(np.round(ori_feat_pred_perf, 4))}\n"
     )
     for i, new_feat_pred_perf in enumerate(new_feat_pred_perf_list):
-        print(f"(2) New: {str(np.round(new_feat_pred_perf, 4))}, meta strategy: {meta_strategy[0][i]}")
+        print(
+            f"(2) New: {str(np.round(new_feat_pred_perf, 4))}, meta strategy: {meta_strategy[0][i]}"
+        )
 
     # feat_pred = [ori_feat_pred_perf, new_feat_pred_perf]
 
@@ -243,7 +242,9 @@ def main(args):
         + f"(1) Ori: {str(np.round(ori_step_ahead_pred_perf, 4))}"
     )
     for i, new_step_ahead_pred_perf in enumerate(new_step_ahead_pred_perf_list):
-        print(f"(2) New: {str(np.round(new_step_ahead_pred_perf, 4))}, meta strategy: {meta_strategy[0][i]}")
+        print(
+            f"(2) New: {str(np.round(new_step_ahead_pred_perf, 4))}, meta strategy: {meta_strategy[0][i]}"
+        )
     # step_ahead_pred = [ori_step_ahead_pred_perf, new_step_ahead_pred_perf]
     #
     # print(
@@ -288,7 +289,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", default=128, type=int)
     parser.add_argument("--hidden_dim", default=20, type=int)
     parser.add_argument("--num_layers", default=3, type=int)
-    parser.add_argument("--dis_thresh", default=0.15, type=float)
+    parser.add_argument("--dis_thresh", default=0.05, type=float)  # default 0.15
     parser.add_argument("--optimizer", choices=["adam"], default="adam", type=str)
     parser.add_argument("--learning_rate", default=1e-3, type=float)
 

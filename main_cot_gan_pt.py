@@ -1,21 +1,17 @@
 import torch
 import argparse
 import cot_gan_pt.gan as gan
-import cot_gan_pt.gan_utils as gan_utils
-import cot_gan_pt.data_utils as data_utils
-import glob
+from cot_gan_pt import gan_utils
+from cot_gan_pt import data_utils
 import os
 import time
-import tqdm
 
 from datetime import datetime
 import numpy as np
-import matplotlib.pyplot as plt
 from urllib.request import urlretrieve
 import urllib.request, json
-from torch.utils.data import Dataset, IterableDataset, DataLoader
+from torch.utils.data import DataLoader
 import torch.nn.parallel
-import torch.backends.cudnn as cudnn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 

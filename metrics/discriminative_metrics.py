@@ -22,7 +22,7 @@ Output: discriminative score (np.abs(classification accuracy - 0.5))
 import tensorflow as tf
 import numpy as np
 from sklearn.metrics import accuracy_score
-from time_gan_tf.utils import train_test_divide, extract_time, batch_generator
+from backup.time_gan_tf import train_test_divide, extract_time, batch_generator
 
 
 def discriminative_score_metrics(ori_data, generated_data):

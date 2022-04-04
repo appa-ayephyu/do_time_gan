@@ -16,7 +16,6 @@ import time
 import numpy as np
 import torch
 import torch.backends.cudnn
-import joblib
 from sklearn.model_selection import train_test_split
 
 # Self-Written Modules
@@ -24,7 +23,6 @@ from time_gan_pt.data.data_preprocess import data_preprocess
 from time_gan_pt.metrics.metric_utils import (
     feature_prediction,
     one_step_ahead_prediction,
-    reidentify_score,
 )
 
 from time_gan_pt.models.timegan import TimeGAN

@@ -17,7 +17,7 @@ from copy import deepcopy
 # Self-written modules
 from time_gan_pt.models.dataset import TimeGANDataset
 from time_gan_pt.models.timegan import TimeGAN
-from meta_solvers.prd_solver import projected_replicator_dynamics
+from do_gan.meta_solvers.prd_solver import projected_replicator_dynamics
 
 
 # from torch.utils.data.dataloader import DataLoader
@@ -28,12 +28,12 @@ from meta_solvers.prd_solver import projected_replicator_dynamics
 
 
 def embedding_trainer(
-        model: torch.nn.Module,
-        dataloader: torch.utils.data.DataLoader,
-        e_opt: torch.optim.Optimizer,
-        r_opt: torch.optim.Optimizer,
-        args,
-        writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
+    model: torch.nn.Module,
+    dataloader: torch.utils.data.DataLoader,
+    e_opt: torch.optim.Optimizer,
+    r_opt: torch.optim.Optimizer,
+    args,
+    writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
 ) -> None:
     """The training loop for the embedding and recovery functions"""
     logger = trange(args.emb_epochs, desc=f"Epoch: 0, Loss: 0")
@@ -62,12 +62,12 @@ def embedding_trainer(
 
 
 def supervisor_trainer(
-        model: torch.nn.Module,
-        dataloader: torch.utils.data.DataLoader,
-        s_opt: torch.optim.Optimizer,
-        g_opt: torch.optim.Optimizer,
-        args,
-        writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
+    model: torch.nn.Module,
+    dataloader: torch.utils.data.DataLoader,
+    s_opt: torch.optim.Optimizer,
+    g_opt: torch.optim.Optimizer,
+    args,
+    writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
 ) -> None:
     """The training loop for the supervisor function"""
     logger = trange(args.sup_epochs, desc=f"Epoch: 0, Loss: 0")
@@ -94,15 +94,15 @@ def supervisor_trainer(
 
 
 def do_joint_trainer(
-        model: TimeGAN,
-        dataloader: torch.utils.data.DataLoader,
-        e_opt: torch.optim.Optimizer,
-        r_opt: torch.optim.Optimizer,
-        s_opt: torch.optim.Optimizer,
-        g_opt: torch.optim.Optimizer,
-        d_opt: torch.optim.Optimizer,
-        args,
-        writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
+    model: TimeGAN,
+    dataloader: torch.utils.data.DataLoader,
+    e_opt: torch.optim.Optimizer,
+    r_opt: torch.optim.Optimizer,
+    s_opt: torch.optim.Optimizer,
+    g_opt: torch.optim.Optimizer,
+    d_opt: torch.optim.Optimizer,
+    args,
+    writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
 ):
     # logger = trange(args.sup_epochs, desc=f"Epoch: 0, E_loss: 0, G_loss: 0, D_loss: 0")
     # parser.add_argument("--max_loops", default=10, type=int)
@@ -198,7 +198,9 @@ def do_joint_trainer(
                     new_meta_payoff_matrix[0][i][j] /= steps
                     new_meta_payoff_matrix[1][i][j] /= steps
         meta_payoff_matrix = new_meta_payoff_matrix
-        meta_strategy = projected_replicator_dynamics(meta_payoff_matrix, prd_iterations=int(1e6))
+        meta_strategy = projected_replicator_dynamics(
+            meta_payoff_matrix, prd_iterations=int(1e6)
+        )
         print("meta_payoff: {}".format(meta_payoff_matrix))
         print("meta_strategy: {}".format(meta_strategy))
         if loop == max_loop:
@@ -219,7 +221,7 @@ def do_joint_trainer(
             print("do training, epoch {}".format(epoch))
             for X_mb, T_mb in dataloader:
                 # Generator Training
-                for _ in range(2):
+                for _ in range(5):
                     # Random Generator
                     Z_mb = torch.rand((args.batch_size, args.max_seq_len, args.Z_dim))
 
@@ -286,15 +288,15 @@ def do_joint_trainer(
 
 
 def joint_trainer(
-        model: torch.nn.Module,
-        dataloader: torch.utils.data.DataLoader,
-        e_opt: torch.optim.Optimizer,
-        r_opt: torch.optim.Optimizer,
-        s_opt: torch.optim.Optimizer,
-        g_opt: torch.optim.Optimizer,
-        d_opt: torch.optim.Optimizer,
-        args,
-        writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
+    model: torch.nn.Module,
+    dataloader: torch.utils.data.DataLoader,
+    e_opt: torch.optim.Optimizer,
+    r_opt: torch.optim.Optimizer,
+    s_opt: torch.optim.Optimizer,
+    g_opt: torch.optim.Optimizer,
+    d_opt: torch.optim.Optimizer,
+    args,
+    writer: Union[torch.utils.tensorboard.SummaryWriter, type(None)] = None,
 ) -> None:
     """The training loop for training the model altogether"""
     logger = trange(args.sup_epochs, desc=f"Epoch: 0, E_loss: 0, G_loss: 0, D_loss: 0")
