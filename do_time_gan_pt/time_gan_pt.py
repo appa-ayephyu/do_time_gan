@@ -400,7 +400,9 @@ class time_gan_generator(nn.Module):
 
     def preprocessing_it(self, dataloader, pre_generator=None):
         if pre_generator is None:
-            logger = tqdm.trange(self.args.emb_epochs, desc=f"Epoch: 0, Loss: 0")
+            logger = tqdm.trange(
+                self.args.emb_epochs, desc=f"preprocessing the recovery and embedder"
+            )
             for _ in logger:
                 for X_mb, T_mb in dataloader:
                     # Reset gradients
@@ -416,7 +418,9 @@ class time_gan_generator(nn.Module):
                     # Update model parameters
                     self.e_opt.step()
                     self.r_opt.step()
-            logger = tqdm.trange(self.args.sup_epochs, desc=f"Epoch: 0, Loss: 0")
+            logger = tqdm.trange(
+                self.args.sup_epochs, desc=f"preprocessing the supervisor"
+            )
             # pretrain of the supervisor
             for _ in logger:
                 for X_mb, T_mb in dataloader:
@@ -438,8 +442,13 @@ class time_gan_generator(nn.Module):
             soft_update(online=pre_generator.recovery, target=self.recovery, tau=0.0)
 
     def train_it(self, data, discriminator, train_step=10):
-        print("This is for training the model")
+        # print("This is for training the model")
+        args = self.args
+
         for _ in range(train_step):
+            Z_mb = torch.rand((args.batch_size, args.max_seq_len, args.Z_dim))
+            data["Z"] = Z_mb
+
             self.g_opt.zero_grad()
             self.s_opt.zero_grad()
             # Z_mb = torch.rand((self.args.batch_size, self.args.max_seq_len, self.args.Z_dim))
@@ -462,7 +471,10 @@ class time_gan_generator(nn.Module):
         data,
         discriminator,
     ):
-        print("This is for computing the meta game")
+        # print("This is for computing the meta game")
+        args = self.args
+        Z_mb = torch.rand((args.batch_size, args.max_seq_len, args.Z_dim))
+        data["Z"] = Z_mb
         g_loss = self.forward(data, discriminator)
         E_loss, _, E_loss_T0 = self._recovery_forward(data)
 
@@ -622,6 +634,9 @@ class time_gan_discriminator(nn.Module):
         self.d_opt.zero_grad()
         # Forward Pass
         # D_loss = model(X=X_mb, T=T_mb, Z=Z_mb, obj="discriminator")
+        args = self.args
+        Z_mb = torch.rand((args.batch_size, args.max_seq_len, args.Z_dim))
+        data["Z"] = Z_mb
         D_loss = self.forward(data, generator)
         # Check Discriminator loss
         if D_loss > self.args.dis_thresh:
